@@ -395,7 +395,7 @@ ARGV. See *USAGE* for details."
       (force-output stream)
       (when (dumpfile-copy dumper)
         (copy-file file (dumpfile-copy dumper)))
-      (let ((process (run-program #+sbcl (sbcl dumper)
+      (let (#|(process (run-program #+sbcl (sbcl dumper)
                                   #+ccl  (ccl  dumper)
                                   (flatten
                                    (list
@@ -409,6 +409,18 @@ ARGV. See *USAGE* for details."
                                     #+sbcl "--disable-debugger"
                                     #+sbcl "--no-userinit"
                                     #+sbcl "--no-sysinit"
+                                    #+ccl  "--no-init"
+                                    "--load" (native-namestring
+                                              (probe-file file)))))))|#
+            ;;This is a hack to build buildapp-ccl on windows
+            ;;On windows without mingw run-program must be executed as
+            ;;(run-program "cmd" '("/c" "ccl" PARAMS))
+            (process (run-program "cmd"
+                                  (flatten
+                                   (list
+                                    #+ccl  "/c"
+                                    #+ccl  (ccl dumper)
+                                    #+ccl  "--quiet"
                                     #+ccl  "--no-init"
                                     "--load" (native-namestring
                                               (probe-file file)))))))
@@ -428,7 +440,16 @@ ARGV. See *USAGE* for details."
                 "--output"
                 (native-namestring full-output)))))
 
-
+(defun build-buildapp-ccl (&optional (executable "buildapp"))
+  (let ((full-output (merge-pathnames executable)))
+    (main (list "wx86cl"
+                "--asdf-path"
+                (native-namestring
+                 (asdf:system-relative-pathname :buildapp "./"))
+                "--load-system" "buildapp"
+                "--entry" "buildapp:main"
+                "--output"
+                (native-namestring full-output)))))
 
 (defun buildapp-init ()
   (setf #+sbcl sb-ext:*invoke-debugger-hook*
